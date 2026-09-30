@@ -7,7 +7,7 @@
 
 > Still a WIP project
 
-> This extension was created for `https://github.com/beyondgrayzone/kit` which is custom fork of `github.com/mark3labs/kit` with added events for extensions API
+> This extension was created for `https://github.com/bringyourowndeveloper/kit` which is custom fork of `github.com/mark3labs/kit` with added events for extensions API
 
 Herdr already understands a long list of coding agents (Claude Code, Codex,
 Cursor, Droid, OpenCode, ...) and gives each pane a semantic state in its
@@ -40,7 +40,7 @@ Clone right into the Kit extension
 
 ```
 cd ~/.config/kit/extensions
-git clone https://github.com/beyondgrayzone/herdr .
+git clone https://github.com/bringyourowndeveloper/herdr .
 ```
 
 There is nothing to install. Herdr auto-discovers this file in

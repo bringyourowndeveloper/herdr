@@ -568,12 +568,132 @@ func setHerdrModalOpen(open bool) {
 	herdrTurn.modalOpen = open
 }
 
+// endsWithQuestion mirrors endsWithQuestion in kitty.go. The two files share
+// the rule but not the code  they are separate Yaegi programs with no
+// compile-time link  so the tests assert the two agree by driving the same
+// response text through both and comparing the verdicts.
 func endsWithQuestion(content string) bool {
 	tail := trailingText(content)
-	if !hasQuestionTrigger(tail) {
+	if hasQuestionTrigger(tail) && finalSentenceAsks(tail) {
+		return true
+	}
+	return lastLineAsks(content)
+}
+
+// lastLineAsks is the loose half of the rule, shared with kitty.go: a
+// question on the response's last line counts, even when the response
+// carries on past it. See the notes there for the name guard ("?refactor",
+// "?shortcut=open", "api?user=1"), the comma-tag guard ("All green, right?")
+// and the two cases it deliberately takes from the sentence rules.
+func lastLineAsks(content string) bool {
+	line := lastLine(stripFencedCode(content))
+	if isTagQuestion(line) {
 		return false
 	}
-	return finalSentenceAsks(tail)
+	return hasQuestionPunctuation(line)
+}
+
+func hasQuestionPunctuation(s string) bool {
+	if askMark(s, "?") {
+		return true
+	}
+	return strings.Contains(s, "？")
+}
+
+func askMark(s, mark string) bool {
+	idx := strings.Index(s, mark)
+	if idx < 0 {
+		return false
+	}
+	if isConditionalMark(s, idx) {
+		return askMark(s[idx+len(mark):], mark)
+	}
+	after := s[idx+len(mark):]
+	if !opensToken(after) {
+		return true
+	}
+	if wordEnd(s[:idx]) != "" {
+		return false
+	}
+	eq := strings.Index(after, "=")
+	return eq < 0 || wordStart(after[:eq]) == ""
+}
+
+func isConditionalMark(s string, i int) bool {
+	if i == 0 || i+1 >= len(s) {
+		return false
+	}
+	if !isSpaceByte(s[i-1]) || !isSpaceByte(s[i+1]) {
+		return false
+	}
+	return strings.Contains(s[i+1:], ":")
+}
+
+func isSpaceByte(b byte) bool {
+	return b == ' ' || b == '\t'
+}
+
+func wordStart(s string) string {
+	end := 0
+	for end < len(s) {
+		r, size := utf8DecodeRuneInString(s[end:])
+		if !isLetterOrDigit(r) {
+			break
+		}
+		end += size
+	}
+	return s[:end]
+}
+
+func wordEnd(s string) string {
+	i := len(s)
+	for i > 0 {
+		r, size := utf8DecodeLastRuneInString(s[:i])
+		if !isLetterOrDigit(r) {
+			break
+		}
+		i -= size
+	}
+	return s[i:]
+}
+
+func lastLine(s string) string {
+	lines := strings.Split(s, "\n")
+	return strings.TrimRight(lines[len(lines)-1], " \t\r")
+}
+
+func opensToken(rest string) bool {
+	if rest == "" {
+		return false
+	}
+	r, _ := utf8DecodeRuneInString(rest)
+	return isLetterOrDigit(r)
+}
+
+func isTagQuestion(line string) bool {
+	trimmed := strings.TrimRight(line, "*_` \t\r")
+	mark := strings.LastIndex(trimmed, "?")
+	if mark < 0 {
+		mark = strings.LastIndex(trimmed, "？")
+	}
+	if mark < 0 {
+		return false
+	}
+	before := trimmed[:mark]
+	comma := strings.LastIndex(before, ",")
+	if comma < 0 {
+		return false
+	}
+	tag := strings.TrimSpace(before[comma+1:])
+	if tag == "" || len(tag) > 16 {
+		return false
+	}
+	for _, r := range tag {
+		if !isLetterOrSpace(r) && r != '\'' && r != '’' {
+			return false
+		}
+	}
+	return true
 }
 
 func trailingText(content string) string {
@@ -762,6 +882,10 @@ func utf8DecodeLastRuneInString(s string) (rune, int) {
 
 func isLetterOrDigit(r rune) bool {
 	return unicode.IsLetter(r) || unicode.IsDigit(r)
+}
+
+func isLetterOrSpace(r rune) bool {
+	return unicode.IsLetter(r) || unicode.IsSpace(r)
 }
 
 const settleDelay = 400 * time.Millisecond

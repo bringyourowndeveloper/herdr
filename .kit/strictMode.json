@@ -1,0 +1,47 @@
+{
+  "allowed_paths": [
+    ".",
+    "/tmp"
+  ],
+  "allowed_read_paths": [],
+  "approve_shell": false,
+  "blacklisted_binaries": [
+    "curl",
+    "wget",
+    "nc",
+    "python",
+    "python3",
+    "perl",
+    "ruby",
+    "ssh",
+    "scp",
+    "ln"
+  ],
+  "blocked_commands": [
+    "git reset",
+    "git restore",
+    "git checkout",
+    "git commit",
+    "git add",
+    "git filter",
+    "git stash",
+    "git clean"
+  ],
+  "blocked_paths": [
+    ".kit"
+  ],
+  "extensions": [
+    "approve-shell",
+    "context-monitor",
+    "error-recovery",
+    "kit-events",
+    "pattern-access",
+    "session-check",
+    "subagent-monitor",
+    "token-meter",
+    "ttys",
+    "workflow-loop"
+  ],
+  "stop_on_violation": false,
+  "workflow_yolo": false
+}

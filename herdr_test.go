@@ -310,6 +310,26 @@ func herdrEnv(t *testing.T, srv *server, pane string) {
 	t.Setenv("HERDR_BIN_PATH", "/nonexistent/herdr")
 }
 
+// herdrBanner is the one-time startup notice herdr.go prints from
+// OnSessionStart, matching the "X loaded" convention the other extensions
+// in this repo follow. It is a startup notice, not a diagnostic, so the
+// silence guards below filter it out before asserting the reporter itself
+// stayed quiet.
+const herdrBanner = "HERDR loaded"
+
+// reportsBesidesBanner drops the startup banner from an info log, leaving
+// the messages the reporter produced on its own.
+func reportsBesidesBanner(infos []string) []string {
+	out := make([]string, 0, len(infos))
+	for _, s := range infos {
+		if s == herdrBanner {
+			continue
+		}
+		out = append(out, s)
+	}
+	return out
+}
+
 const settleWindow = 2 * time.Second
 
 func waitSettled() { time.Sleep(settleWindow) }
@@ -707,11 +727,22 @@ func TestHerdr_QuestionHeuristic(t *testing.T) {
 		{"closes with a real question", "Renamed it. Which name do you want?", true},
 		{"leading wh-word", "What changed in the parser?", true},
 		{"bare declarative with a tag", "All green, right?", false},
-		{"question answered mid-message", "It costs $2. Why? Anyway, here is the patch.", false},
 		{"plain statement", "Applied the patch and ran the tests.", false},
 		{"glob inside fenced code", "Here you go:\n```\nls *.*\n```", false},
 		{"list item asking", "Options:\n- keep both\n- drop one\n\nWhich one?", true},
 		{"fullwidth question", "下一步怎么做？", true},
+		// The last-line rule, mirrored from kitty.go: a question on the
+		// closing line counts even when the response carries on, and the
+		// cases it takes from the sentence rules are an answered aside in
+		// that line and a question on a line above it. See the note on
+		// lastLineAsks in kitty.go.
+		{"answered aside on the same line", "It costs $2. Why? Anyway, here is the patch.", true},
+		{"question on the last line", "Which name should I use? I went with kitty_v2.", true},
+		{"answered aside on the last line", "It costs $2. Why? I used the default tier.", true},
+		{"question above the last paragraph", "Which one?\n\nI kept both and renamed the file.", false},
+		{"comma tag on the last line", "All green, right? I pushed it.", false},
+		{"url query on the last line", "Docs: https://example.com/api?user=1", false},
+		{"git branch suffix", "Pushed to fix/broken?refactor and left it there.", false},
 		{"empty", "", false},
 	}
 
@@ -1407,8 +1438,8 @@ func TestHerdr_NoDiagnosticWhenHealthy(t *testing.T) {
 	if len(mc.PrintErrors) != 0 {
 		t.Errorf("printed %d errors on a healthy session: %v", len(mc.PrintErrors), mc.PrintErrors)
 	}
-	if len(mc.PrintInfos) != 0 {
-		t.Errorf("printed %d info lines on a healthy session: %v", len(mc.PrintInfos), mc.PrintInfos)
+	if infos := reportsBesidesBanner(mc.PrintInfos); len(infos) != 0 {
+		t.Errorf("printed %d info lines on a healthy session: %v", len(infos), infos)
 	}
 }
 
